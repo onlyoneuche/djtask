@@ -1,30 +1,25 @@
-from django.contrib.auth.models import User
-from django.contrib import messages
-from django.views.generic.edit import FormView
-from django.shortcuts import redirect
-
-from .forms import GenerateRandomUserForm
-from .tasks import create_random_user_accounts
-
+import requests
+from rest_framework import permissions
+from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
+from rest_framework.viewsets import GenericViewSet
+from rest_framework.response import Response
 
 
-from django.urls import path, include
-from rest_framework import viewsets
-from rest_framework import generics
-from .serializers import CreateRandomUserSerializer, UserSerializer
+from .serializers import DataSerializer
+from .tasks import get_data
 
-class GenerateRandomUserView(FormView):
-    template_name = 'core/generate_random_users.html'
-    form_class = GenerateRandomUserForm
+class ExternalRequestsViewset(GenericViewSet):
+    permission_classes = [AllowAny]
 
-    def form_valid(self, form):
-        total = form.cleaned_data.get('total')
-        create_random_user_accounts.delay(total)
-        messages.success(self.request, 'We are generating your random users! Wait a moment and refresh this page.')
-        return redirect('users_list')
-
-# ViewSets define the view behavior.
-
-class UserViewSet(viewsets.ModelViewSet):
-    """Create a new user in the system"""
-    serializer_class = UserSerializer
+    @action(methods=['post'], detail=False, url_path='data', url_name='data')
+    def process_data(self, request, *args, **kwargs):
+        serializer = DataSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+        data = serializer.data
+        try:
+            _ = get_data.delay(data)
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
+        return Response({"message": "processing your request"})

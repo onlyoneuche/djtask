@@ -1,7 +1,5 @@
 from rest_framework.routers import SimpleRouter
+from core.views import ExternalRequestsViewset
 
-from core.views import UserViewSet
-
-
-plan_router = SimpleRouter()
-plan_router.register('users/', UserViewSet, basename='users')
+data_router = SimpleRouter()
+data_router.register("misc", ExternalRequestsViewset, basename="misc")
